@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+
+# Node / Vite
+thigiacmt/node_modules/
+thigiacmt/dist/
+thigiacmt/.vite/
+thigiacmt/node_modules/.vite*
+*.log
