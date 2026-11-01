@@ -66,92 +66,158 @@ const DEFAULT_CONNECTIONS: [number, number][] = [
   [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
 ]
 
+export interface PoseOptions {
+  tightSpread?: boolean
+  okPinch?: boolean
+  pinchPinky?: boolean
+  oBunched?: boolean
+  cCup?: boolean
+  crossedIm?: boolean
+  tightIm?: boolean
+  handSideways?: boolean
+  handDown?: boolean
+  thumbDown?: boolean
+  thumbStraightUp?: boolean
+  jitterPhase?: number
+}
+
 // Build a geometrically realistic 21-landmark hand skeleton so Python Backend's
-// analyze_fingers() and classify_single_hand() evaluate true angles & distances!
+// analyze_fingers() and classify_single_hand() evaluate true angles & distances
+// across all 36 supported sign language gestures!
 function buildGeometricHandLandmarks(
   fingers: FingerState,
-  options?: {
-    tightSpread?: boolean
-    okPinch?: boolean
-    thumbDown?: boolean
-    thumbStraightUp?: boolean
-    jitterPhase?: number
-  }
+  options?: PoseOptions
 ): LandmarkPoint[] {
   const phase = options?.jitterPhase ?? 0
-  const dx = Math.sin(phase) * 0.008
-  const dy = Math.cos(phase * 1.3) * 0.008
+  const dx = Math.sin(phase) * 0.006
+  const dy = Math.cos(phase * 1.3) * 0.006
 
-  const wrist = { x: 0.5 + dx, y: 0.78 + dy, z: 0 }
+  const wrist = { x: 0.5, y: 0.78, z: 0 }
   const knuckleGap = 0.056
 
   // Compute MCP positions for Index (5), Middle (9), Ring (13), Pinky (17)
   const mcpX = [
-    0.5 - 1.5 * knuckleGap + dx,
-    0.5 - 0.5 * knuckleGap + dx,
-    0.5 + 0.5 * knuckleGap + dx,
-    0.5 + 1.5 * knuckleGap + dx,
+    0.5 - 1.5 * knuckleGap,
+    0.5 - 0.5 * knuckleGap,
+    0.5 + 0.5 * knuckleGap,
+    0.5 + 1.5 * knuckleGap,
   ]
-  const mcpY = 0.56 + dy
+  const mcpY = 0.56
 
   // Thumb joints (1: CMC, 2: MCP, 3: IP, 4: TIP)
   let thumbPts: LandmarkPoint[]
-  if (options?.thumbDown) {
+  if (options?.oBunched) {
     thumbPts = [
-      { x: 0.43 + dx, y: 0.66 + dy, z: 0 },
-      { x: 0.39 + dx, y: 0.73 + dy, z: 0 },
-      { x: 0.37 + dx, y: 0.81 + dy, z: 0 },
-      { x: 0.35 + dx, y: 0.89 + dy, z: 0 },
+      { x: 0.44, y: 0.68, z: 0 },
+      { x: 0.42, y: 0.60, z: 0 },
+      { x: 0.44, y: 0.53, z: 0 },
+      { x: 0.48, y: 0.49, z: 0 },
+    ]
+  } else if (options?.pinchPinky) {
+    thumbPts = [
+      { x: 0.44, y: 0.68, z: 0 },
+      { x: 0.48, y: 0.63, z: 0 },
+      { x: 0.53, y: 0.59, z: 0 },
+      { x: 0.575, y: 0.55, z: 0 },
+    ]
+  } else if (options?.thumbDown) {
+    thumbPts = [
+      { x: 0.43, y: 0.66, z: 0 },
+      { x: 0.39, y: 0.73, z: 0 },
+      { x: 0.37, y: 0.81, z: 0 },
+      { x: 0.35, y: 0.89, z: 0 },
     ]
   } else if (options?.thumbStraightUp) {
     thumbPts = [
-      { x: 0.44 + dx, y: 0.66 + dy, z: 0 },
-      { x: 0.40 + dx, y: 0.56 + dy, z: 0 },
-      { x: 0.38 + dx, y: 0.46 + dy, z: 0 },
-      { x: 0.36 + dx, y: 0.36 + dy, z: 0 },
+      { x: 0.44, y: 0.66, z: 0 },
+      { x: 0.40, y: 0.56, z: 0 },
+      { x: 0.38, y: 0.46, z: 0 },
+      { x: 0.36, y: 0.36, z: 0 },
     ]
   } else if (options?.okPinch) {
     thumbPts = [
-      { x: 0.44 + dx, y: 0.68 + dy, z: 0 },
-      { x: 0.40 + dx, y: 0.60 + dy, z: 0 },
-      { x: 0.40 + dx, y: 0.53 + dy, z: 0 },
-      { x: 0.425 + dx, y: 0.48 + dy, z: 0 },
+      { x: 0.44, y: 0.68, z: 0 },
+      { x: 0.40, y: 0.60, z: 0 },
+      { x: 0.40, y: 0.53, z: 0 },
+      { x: 0.425, y: 0.48, z: 0 },
     ]
   } else if (fingers.thumb) {
-    // Extended outward to the left (straight 180 deg chain)
     thumbPts = [
-      { x: 0.44 + dx, y: 0.69 + dy, z: 0 },
-      { x: 0.38 + dx, y: 0.62 + dy, z: 0 },
-      { x: 0.32 + dx, y: 0.55 + dy, z: 0 },
-      { x: 0.26 + dx, y: 0.48 + dy, z: 0 },
+      { x: 0.44, y: 0.69, z: 0 },
+      { x: 0.38, y: 0.62, z: 0 },
+      { x: 0.32, y: 0.55, z: 0 },
+      { x: 0.26, y: 0.48, z: 0 },
     ]
   } else {
-    // Curled across palm
     thumbPts = [
-      { x: 0.44 + dx, y: 0.69 + dy, z: 0 },
-      { x: 0.42 + dx, y: 0.62 + dy, z: 0 },
-      { x: 0.46 + dx, y: 0.60 + dy, z: 0 },
-      { x: 0.49 + dx, y: 0.61 + dy, z: 0 },
+      { x: 0.44, y: 0.69, z: 0 },
+      { x: 0.42, y: 0.62, z: 0 },
+      { x: 0.46, y: 0.60, z: 0 },
+      { x: 0.49, y: 0.61, z: 0 },
     ]
   }
 
   const makeFingerChain = (
     idx: number,
     isUp: boolean,
-    fanFactor: number,
-    isOkIndex = false
+    fanFactor: number
   ): LandmarkPoint[] => {
     const bx = mcpX[idx]
     const by = mcpY
-    if (isOkIndex) {
+
+    if (options?.oBunched) {
+      const tx = 0.475 + idx * 0.008
+      const ty = 0.49
+      return [
+        { x: bx, y: by, z: 0 },
+        { x: bx, y: by - 0.06, z: 0 },
+        { x: (bx + tx) * 0.5, y: by - 0.08, z: 0 },
+        { x: tx, y: ty, z: 0 },
+      ]
+    }
+    if (options?.cCup) {
+      return [
+        { x: bx, y: by, z: 0 },
+        { x: bx - 0.02, y: by - 0.10, z: 0 },
+        { x: bx - 0.07, y: by - 0.12, z: 0 },
+        { x: bx - 0.11, y: by - 0.09, z: 0 },
+      ]
+    }
+    if (options?.okPinch && idx === 0) {
       return [
         { x: bx, y: by, z: 0 },
         { x: bx - 0.015, y: by - 0.08, z: 0 },
         { x: bx + 0.005, y: by - 0.095, z: 0 },
-        { x: 0.428 + dx, y: 0.482 + dy, z: 0 },
+        { x: 0.428, y: 0.482, z: 0 },
+      ]
+    }
+    if (options?.pinchPinky && idx === 3) {
+      return [
+        { x: bx, y: by, z: 0 },
+        { x: bx, y: by - 0.06, z: 0 },
+        { x: 0.58, y: 0.53, z: 0 },
+        { x: 0.578, y: 0.552, z: 0 },
       ]
     }
     if (isUp) {
+      if (options?.crossedIm && (idx === 0 || idx === 1)) {
+        const targetX = idx === 0 ? 0.488 : 0.462
+        return [
+          { x: bx, y: by, z: 0 },
+          { x: (bx + targetX) * 0.5, y: by - 0.095, z: 0 },
+          { x: targetX, y: by - 0.185, z: 0 },
+          { x: targetX, y: by - 0.275, z: 0 },
+        ]
+      }
+      if (options?.tightIm && (idx === 0 || idx === 1)) {
+        const targetX = idx === 0 ? 0.465 : 0.482
+        return [
+          { x: bx, y: by, z: 0 },
+          { x: targetX, y: by - 0.095, z: 0 },
+          { x: targetX, y: by - 0.185, z: 0 },
+          { x: targetX, y: by - 0.275, z: 0 },
+        ]
+      }
       const tipSpread = options?.tightSpread ? -fanFactor * 0.018 : fanFactor * 0.028
       return [
         { x: bx, y: by, z: 0 },
@@ -160,7 +226,6 @@ function buildGeometricHandLandmarks(
         { x: bx + tipSpread, y: by - 0.275, z: 0 },
       ]
     }
-    // Curled finger (bent at PIP so angle < 90 deg and tip is close to wrist)
     return [
       { x: bx, y: by, z: 0 },
       { x: bx, y: by - 0.055, z: 0 },
@@ -169,26 +234,45 @@ function buildGeometricHandLandmarks(
     ]
   }
 
-  return [
+  let pts: LandmarkPoint[] = [
     wrist,
     ...thumbPts,
-    ...makeFingerChain(0, fingers.index, -1.5, options?.okPinch),
+    ...makeFingerChain(0, fingers.index, -1.5),
     ...makeFingerChain(1, fingers.middle, -0.5),
     ...makeFingerChain(2, fingers.ring, 0.5),
     ...makeFingerChain(3, fingers.pinky, 1.5),
   ]
+
+  if (options?.handSideways) {
+    const cx = 0.5
+    const cy = 0.55
+    pts = pts.map((p) => ({
+      x: cx + (p.y - cy),
+      y: cy - (p.x - cx),
+      z: 0,
+    }))
+  } else if (options?.handDown) {
+    const cy = 0.52
+    pts = pts.map((p) => ({
+      x: p.x,
+      y: 2 * cy - p.y,
+      z: 0,
+    }))
+  }
+
+  return pts.map((p) => ({
+    x: p.x + dx,
+    y: p.y + dy,
+    z: p.z,
+  }))
 }
 
 function getPoseParametersForSign(signId: string): {
   fingers: FingerState
-  options?: {
-    tightSpread?: boolean
-    okPinch?: boolean
-    thumbDown?: boolean
-    thumbStraightUp?: boolean
-  }
+  options?: PoseOptions
 } {
   switch (signId) {
+    // 1. Chào hỏi (5)
     case 'hello':
       return {
         fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
@@ -199,10 +283,21 @@ function getPoseParametersForSign(signId: string): {
         fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
         options: { tightSpread: true },
       }
-    case 'i_love_you':
+    case 'peace':
       return {
-        fingers: { thumb: true, index: true, middle: false, ring: false, pinky: true },
+        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
       }
+    case 'sorry':
+      return {
+        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: false },
+      }
+    case 'please':
+      return {
+        fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
+        options: { handSideways: true },
+      }
+
+    // 2. Phản hồi (6)
     case 'yes_good':
       return {
         fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
@@ -218,22 +313,104 @@ function getPoseParametersForSign(signId: string): {
         fingers: { thumb: true, index: false, middle: true, ring: true, pinky: true },
         options: { okPinch: true },
       }
-    case 'sorry':
+    case 'correct':
       return {
-        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: false },
+        fingers: { thumb: true, index: true, middle: false, ring: false, pinky: false },
       }
-    case 'peace':
+    case 'wrong':
       return {
-        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
+        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: true },
+      }
+    case 'maybe':
+      return {
+        fingers: { thumb: false, index: TrueOrFalse(true), middle: false, ring: true, pinky: false },
+      }
+
+    // 3. Giao tiếp (7)
+    case 'point_one':
+      return {
+        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: false },
+      }
+    case 'you':
+      return {
+        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: false },
+        options: { handSideways: true },
       }
     case 'call_me':
       return {
         fingers: { thumb: true, index: false, middle: false, ring: false, pinky: true },
       }
-    case 'point_one':
+    case 'question':
       return {
-        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: false },
+        fingers: { thumb: false, index: false, middle: true, ring: true, pinky: true },
       }
+    case 'understand':
+      return {
+        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
+      }
+    case 'dont_understand':
+      return {
+        fingers: { thumb: false, index: false, middle: true, ring: false, pinky: false },
+      }
+    case 'name':
+      return {
+        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
+        options: { tightIm: true },
+      }
+
+    // 4. Cảm xúc (5)
+    case 'i_love_you':
+      return {
+        fingers: { thumb: true, index: true, middle: false, ring: false, pinky: true },
+      }
+    case 'happy':
+      return {
+        fingers: { thumb: true, index: true, middle: true, ring: false, pinky: true },
+      }
+    case 'sad':
+      return {
+        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: true },
+        options: { handDown: true },
+      }
+    case 'wish_luck':
+      return {
+        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
+        options: { crossedIm: true },
+      }
+    case 'awesome':
+      return {
+        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: true },
+      }
+
+    // 5. Sinh hoạt (6)
+    case 'eat':
+      return {
+        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: false },
+        options: { oBunched: true },
+      }
+    case 'drink':
+      return {
+        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
+        options: { cCup: true },
+      }
+    case 'money':
+      return {
+        fingers: { thumb: true, index: false, middle: true, ring: false, pinky: false },
+      }
+    case 'home':
+      return {
+        fingers: { thumb: true, index: false, middle: true, ring: true, pinky: false },
+      }
+    case 'restroom':
+      return {
+        fingers: { thumb: false, index: false, middle: false, ring: true, pinky: false },
+      }
+    case 'sleep':
+      return {
+        fingers: { thumb: true, index: false, middle: false, ring: true, pinky: true },
+      }
+
+    // 6. Khẩn cấp (4)
     case 'help':
       return {
         fingers: { thumb: false, index: true, middle: true, ring: true, pinky: false },
@@ -243,11 +420,39 @@ function getPoseParametersForSign(signId: string): {
         fingers: { thumb: false, index: true, middle: true, ring: true, pinky: true },
         options: { tightSpread: false },
       }
+    case 'doctor':
+      return {
+        fingers: { thumb: false, index: false, middle: true, ring: true, pinky: false },
+      }
+    case 'pain':
+      return {
+        fingers: { thumb: true, index: false, middle: false, ring: true, pinky: false },
+      }
+
+    // 7. Số đếm (3)
+    case 'number_three':
+      return {
+        fingers: { thumb: true, index: true, middle: true, ring: false, pinky: false },
+      }
+    case 'number_six':
+      return {
+        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: false },
+        options: { pinchPinky: true },
+      }
+    case 'number_seven':
+      return {
+        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: true },
+      }
+
     default:
       return {
         fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
       }
   }
+}
+
+function TrueOrFalse(v: boolean): boolean {
+  return v
 }
 
 function App() {

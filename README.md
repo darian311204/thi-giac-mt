@@ -8,13 +8,19 @@ Dự án tích hợp sẵn **Bộ Công cụ Kiểm thử Không Cần Camera (N
 
 ## ✨ Tính năng Chính
 
-1. **Nhận diện 12 Ký hiệu Giao tiếp Thông dụng + Ký hiệu Tùy chỉnh**:
-   - `👋 Xin chào`, `🙏 Cảm ơn`, `🤟 Tôi yêu bạn`, `👍 Đồng ý / Tốt`, `👎 Không đồng ý`, `👌 OK / Ổn`, `✊ Xin lỗi`, `✌️ Tạm biệt / Hòa bình`, `🤙 Gọi cho tôi`, `☝️ Tôi / Chú ý`, `🆘 Cần giúp đỡ`, `✋ Dừng lại`.
+1. **Nhận diện 36 Ngôn ngữ Ký hiệu Giao tiếp Thông dụng (Chia theo 7 nhóm chủ đề) + Ký hiệu Tùy chỉnh**:
+   - **Nhóm Chào hỏi (5):** `👋 Xin chào`, `🙏 Cảm ơn`, `✌️ Tạm biệt / Hòa bình`, `✊ Xin lỗi`, `🤲 Làm ơn / Xin vui lòng`.
+   - **Nhóm Phản hồi (6):** `👍 Đồng ý / Tốt`, `👎 Không đồng ý`, `👌 OK / Ổn`, `👉 Đúng / Chính xác`, `🚫 Sai / Không phải`, `⚖️ Có thể / Chưa chắc`.
+   - **Nhóm Giao tiếp (7):** `☝️ Tôi / Chú ý`, `🫵 Bạn / Người đối diện`, `🤙 Gọi cho tôi`, `❓ Câu hỏi / Tại sao`, `💡 Hiểu rồi`, `🤷 Không hiểu`, `🏷️ Tên / Giới thiệu`.
+   - **Nhóm Cảm xúc (5):** `🤟 Tôi yêu bạn`, `😊 Vui vẻ / Hạnh phúc`, `😔 Buồn / Mệt mỏi`, `🤞 Chúc may mắn`, `🤘 Tuyệt vời / Xuất sắc`.
+   - **Nhóm Sinh hoạt (6):** `🍽️ Ăn / Đói bụng`, `🥤 Uống nước`, `💵 Tiền / Thanh toán`, `🏠 Nhà / Về nhà`, `🚻 Nhà vệ sinh`, `😴 Ngủ / Nghỉ ngơi`.
+   - **Nhóm Khẩn cấp (4):** `🆘 Cần giúp đỡ`, `✋ Dừng lại`, `🩺 Bác sĩ / Y tế`, `⚡ Đau / Bị thương`.
+   - **Nhóm Số đếm (3):** `3️⃣ Số 3 / Ba`, `6️⃣ Số 6 / Sáu`, `7️⃣ Số 7 / Bảy`.
 2. **Hỗ trợ Kiểm thử Toàn diện Khi Chưa Có Webcam (No-Cam Mode)**:
-   - **🤖 Chạy Luồng Auto-Test**: Giả lập luồng khung xương bàn tay chuyển động tự nhiên gửi liên tục về Python Backend (`/api/detect-landmarks`) để kiểm thử tốc độ xử lý, ghép câu tự động và phát âm.
+   - **🤖 Chạy Luồng Auto-Test**: Giả lập luồng khung xương bàn tay chuyển động tự nhiên gửi liên tục về Python Backend (`/api/detect-landmarks`) để kiểm thử tốc độ xử lý, ghép câu tự động và phát âm qua toàn bộ 36 ký hiệu.
    - **📁 Tải Ảnh / Video hoặc Dán Ảnh (`Ctrl + V`)**: Tải file ảnh/video từ máy tính hoặc dán trực tiếp ảnh chụp màn hình (`Ctrl + V`) để MediaPipe phân tích.
    - **🖐️ Bàn tay Tương tác 5 Ngón**: Tự bấm gập/duỗi từng ngón tay (`Cái`, `Trỏ`, `Giữa`, `Áp út`, `Út`) để kiểm chứng thuật toán hình học trên Python Backend.
-   - **🧪 Kịch bản Kiểm thử CLI (`test_no_cam.py`)**: Kiểm tra tự động 12/12 ký hiệu qua dòng lệnh.
+   - **🧪 Kịch bản Kiểm thử CLI (`test_no_cam.py`)**: Kiểm tra tự động 36/36 ký hiệu qua dòng lệnh.
 3. **📸 Chụp Ảnh Màn hình Kết quả (Screenshot Gallery)**:
    - Chụp và ghép khung hình hiện tại + khung xương 21 điểm + hộp thông tin nhận diện + nhãn thời gian thành file `.png` lưu vào thư mục `screenshots/` và hiển thị ngay trên Web.
 4. **💬 Ghép câu Giao tiếp & Phát âm (Text-to-Speech)**:
