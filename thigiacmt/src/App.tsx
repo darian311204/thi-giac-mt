@@ -66,422 +66,21 @@ const DEFAULT_CONNECTIONS: [number, number][] = [
   [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
 ]
 
-export interface PoseOptions {
-  tightSpread?: boolean
-  okPinch?: boolean
-  pinchPinky?: boolean
-  oBunched?: boolean
-  cCup?: boolean
-  crossedIm?: boolean
-  tightIm?: boolean
-  handSideways?: boolean
-  handDown?: boolean
-  thumbDown?: boolean
-  thumbStraightUp?: boolean
-  jitterPhase?: number
-}
-
-// Build a geometrically realistic 21-landmark hand skeleton so Python Backend's
-// analyze_fingers() and classify_single_hand() evaluate true angles & distances
-// across all 36 supported sign language gestures!
-function buildGeometricHandLandmarks(
-  fingers: FingerState,
-  options?: PoseOptions
-): LandmarkPoint[] {
-  const phase = options?.jitterPhase ?? 0
-  const dx = Math.sin(phase) * 0.006
-  const dy = Math.cos(phase * 1.3) * 0.006
-
-  const wrist = { x: 0.5, y: 0.78, z: 0 }
-  const knuckleGap = 0.056
-
-  // Compute MCP positions for Index (5), Middle (9), Ring (13), Pinky (17)
-  const mcpX = [
-    0.5 - 1.5 * knuckleGap,
-    0.5 - 0.5 * knuckleGap,
-    0.5 + 0.5 * knuckleGap,
-    0.5 + 1.5 * knuckleGap,
-  ]
-  const mcpY = 0.56
-
-  // Thumb joints (1: CMC, 2: MCP, 3: IP, 4: TIP)
-  let thumbPts: LandmarkPoint[]
-  if (options?.oBunched) {
-    thumbPts = [
-      { x: 0.44, y: 0.68, z: 0 },
-      { x: 0.42, y: 0.60, z: 0 },
-      { x: 0.44, y: 0.53, z: 0 },
-      { x: 0.48, y: 0.49, z: 0 },
-    ]
-  } else if (options?.pinchPinky) {
-    thumbPts = [
-      { x: 0.44, y: 0.68, z: 0 },
-      { x: 0.48, y: 0.63, z: 0 },
-      { x: 0.53, y: 0.59, z: 0 },
-      { x: 0.575, y: 0.55, z: 0 },
-    ]
-  } else if (options?.thumbDown) {
-    thumbPts = [
-      { x: 0.43, y: 0.66, z: 0 },
-      { x: 0.39, y: 0.73, z: 0 },
-      { x: 0.37, y: 0.81, z: 0 },
-      { x: 0.35, y: 0.89, z: 0 },
-    ]
-  } else if (options?.thumbStraightUp) {
-    thumbPts = [
-      { x: 0.44, y: 0.66, z: 0 },
-      { x: 0.40, y: 0.56, z: 0 },
-      { x: 0.38, y: 0.46, z: 0 },
-      { x: 0.36, y: 0.36, z: 0 },
-    ]
-  } else if (options?.okPinch) {
-    thumbPts = [
-      { x: 0.44, y: 0.68, z: 0 },
-      { x: 0.40, y: 0.60, z: 0 },
-      { x: 0.40, y: 0.53, z: 0 },
-      { x: 0.425, y: 0.48, z: 0 },
-    ]
-  } else if (fingers.thumb) {
-    thumbPts = [
-      { x: 0.44, y: 0.69, z: 0 },
-      { x: 0.38, y: 0.62, z: 0 },
-      { x: 0.32, y: 0.55, z: 0 },
-      { x: 0.26, y: 0.48, z: 0 },
-    ]
-  } else {
-    thumbPts = [
-      { x: 0.44, y: 0.69, z: 0 },
-      { x: 0.42, y: 0.62, z: 0 },
-      { x: 0.46, y: 0.60, z: 0 },
-      { x: 0.49, y: 0.61, z: 0 },
-    ]
-  }
-
-  const makeFingerChain = (
-    idx: number,
-    isUp: boolean,
-    fanFactor: number
-  ): LandmarkPoint[] => {
-    const bx = mcpX[idx]
-    const by = mcpY
-
-    if (options?.oBunched) {
-      const tx = 0.475 + idx * 0.008
-      const ty = 0.49
-      return [
-        { x: bx, y: by, z: 0 },
-        { x: bx, y: by - 0.06, z: 0 },
-        { x: (bx + tx) * 0.5, y: by - 0.08, z: 0 },
-        { x: tx, y: ty, z: 0 },
-      ]
-    }
-    if (options?.cCup) {
-      return [
-        { x: bx, y: by, z: 0 },
-        { x: bx - 0.02, y: by - 0.10, z: 0 },
-        { x: bx - 0.07, y: by - 0.12, z: 0 },
-        { x: bx - 0.11, y: by - 0.09, z: 0 },
-      ]
-    }
-    if (options?.okPinch && idx === 0) {
-      return [
-        { x: bx, y: by, z: 0 },
-        { x: bx - 0.015, y: by - 0.08, z: 0 },
-        { x: bx + 0.005, y: by - 0.095, z: 0 },
-        { x: 0.428, y: 0.482, z: 0 },
-      ]
-    }
-    if (options?.pinchPinky && idx === 3) {
-      return [
-        { x: bx, y: by, z: 0 },
-        { x: bx, y: by - 0.06, z: 0 },
-        { x: 0.58, y: 0.53, z: 0 },
-        { x: 0.578, y: 0.552, z: 0 },
-      ]
-    }
-    if (isUp) {
-      if (options?.crossedIm && (idx === 0 || idx === 1)) {
-        const targetX = idx === 0 ? 0.488 : 0.462
-        return [
-          { x: bx, y: by, z: 0 },
-          { x: (bx + targetX) * 0.5, y: by - 0.095, z: 0 },
-          { x: targetX, y: by - 0.185, z: 0 },
-          { x: targetX, y: by - 0.275, z: 0 },
-        ]
-      }
-      if (options?.tightIm && (idx === 0 || idx === 1)) {
-        const targetX = idx === 0 ? 0.465 : 0.482
-        return [
-          { x: bx, y: by, z: 0 },
-          { x: targetX, y: by - 0.095, z: 0 },
-          { x: targetX, y: by - 0.185, z: 0 },
-          { x: targetX, y: by - 0.275, z: 0 },
-        ]
-      }
-      const tipSpread = options?.tightSpread ? -fanFactor * 0.018 : fanFactor * 0.028
-      return [
-        { x: bx, y: by, z: 0 },
-        { x: bx + tipSpread * 0.33, y: by - 0.095, z: 0 },
-        { x: bx + tipSpread * 0.66, y: by - 0.185, z: 0 },
-        { x: bx + tipSpread, y: by - 0.275, z: 0 },
-      ]
-    }
-    return [
-      { x: bx, y: by, z: 0 },
-      { x: bx, y: by - 0.055, z: 0 },
-      { x: bx, y: by + 0.015, z: 0 },
-      { x: bx, y: by + 0.045, z: 0 },
-    ]
-  }
-
-  let pts: LandmarkPoint[] = [
-    wrist,
-    ...thumbPts,
-    ...makeFingerChain(0, fingers.index, -1.5),
-    ...makeFingerChain(1, fingers.middle, -0.5),
-    ...makeFingerChain(2, fingers.ring, 0.5),
-    ...makeFingerChain(3, fingers.pinky, 1.5),
-  ]
-
-  if (options?.handSideways) {
-    const cx = 0.5
-    const cy = 0.55
-    pts = pts.map((p) => ({
-      x: cx + (p.y - cy),
-      y: cy - (p.x - cx),
-      z: 0,
-    }))
-  } else if (options?.handDown) {
-    const cy = 0.52
-    pts = pts.map((p) => ({
-      x: p.x,
-      y: 2 * cy - p.y,
-      z: 0,
-    }))
-  }
-
-  return pts.map((p) => ({
-    x: p.x + dx,
-    y: p.y + dy,
-    z: p.z,
-  }))
-}
-
-function getPoseParametersForSign(signId: string): {
-  fingers: FingerState
-  options?: PoseOptions
-} {
-  switch (signId) {
-    // 1. Chào hỏi (5)
-    case 'hello':
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
-        options: { tightSpread: false },
-      }
-    case 'thank_you':
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
-        options: { tightSpread: true },
-      }
-    case 'peace':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
-      }
-    case 'sorry':
-      return {
-        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: false },
-      }
-    case 'please':
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
-        options: { handSideways: true },
-      }
-
-    // 2. Phản hồi (6)
-    case 'yes_good':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
-        options: { thumbStraightUp: true },
-      }
-    case 'no_bad':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
-        options: { thumbDown: true },
-      }
-    case 'ok':
-      return {
-        fingers: { thumb: true, index: false, middle: true, ring: true, pinky: true },
-        options: { okPinch: true },
-      }
-    case 'correct':
-      return {
-        fingers: { thumb: true, index: true, middle: false, ring: false, pinky: false },
-      }
-    case 'wrong':
-      return {
-        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: true },
-      }
-    case 'maybe':
-      return {
-        fingers: { thumb: false, index: TrueOrFalse(true), middle: false, ring: true, pinky: false },
-      }
-
-    // 3. Giao tiếp (7)
-    case 'point_one':
-      return {
-        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: false },
-      }
-    case 'you':
-      return {
-        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: false },
-        options: { handSideways: true },
-      }
-    case 'call_me':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: true },
-      }
-    case 'question':
-      return {
-        fingers: { thumb: false, index: false, middle: true, ring: true, pinky: true },
-      }
-    case 'understand':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
-      }
-    case 'dont_understand':
-      return {
-        fingers: { thumb: false, index: false, middle: true, ring: false, pinky: false },
-      }
-    case 'name':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
-        options: { tightIm: true },
-      }
-
-    // 4. Cảm xúc (5)
-    case 'i_love_you':
-      return {
-        fingers: { thumb: true, index: true, middle: false, ring: false, pinky: true },
-      }
-    case 'happy':
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: false, pinky: true },
-      }
-    case 'sad':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: true },
-        options: { handDown: true },
-      }
-    case 'wish_luck':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: false },
-        options: { crossedIm: true },
-      }
-    case 'awesome':
-      return {
-        fingers: { thumb: false, index: true, middle: false, ring: false, pinky: true },
-      }
-
-    // 5. Sinh hoạt (6)
-    case 'eat':
-      return {
-        fingers: { thumb: false, index: false, middle: false, ring: false, pinky: false },
-        options: { oBunched: true },
-      }
-    case 'drink':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: false, pinky: false },
-        options: { cCup: true },
-      }
-    case 'money':
-      return {
-        fingers: { thumb: true, index: false, middle: true, ring: false, pinky: false },
-      }
-    case 'home':
-      return {
-        fingers: { thumb: true, index: false, middle: true, ring: true, pinky: false },
-      }
-    case 'restroom':
-      return {
-        fingers: { thumb: false, index: false, middle: false, ring: true, pinky: false },
-      }
-    case 'sleep':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: true, pinky: true },
-      }
-
-    // 6. Khẩn cấp (4)
-    case 'help':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: false },
-      }
-    case 'stop':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: true },
-        options: { tightSpread: false },
-      }
-    case 'doctor':
-      return {
-        fingers: { thumb: false, index: false, middle: true, ring: true, pinky: false },
-      }
-    case 'pain':
-      return {
-        fingers: { thumb: true, index: false, middle: false, ring: true, pinky: false },
-      }
-
-    // 7. Số đếm (3)
-    case 'number_three':
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: false, pinky: false },
-      }
-    case 'number_six':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: true, pinky: false },
-        options: { pinchPinky: true },
-      }
-    case 'number_seven':
-      return {
-        fingers: { thumb: false, index: true, middle: true, ring: false, pinky: true },
-      }
-
-    default:
-      return {
-        fingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
-      }
-  }
-}
-
-function TrueOrFalse(v: boolean): boolean {
-  return v
-}
-
 function App() {
   const [activeTab, setActiveTab] = useState<'live' | 'dictionary' | 'trainer'>('live')
+  const [rightSubTab, setRightSubTab] = useState<'history' | 'screenshots'>('history')
   const [backendOnline, setBackendOnline] = useState<boolean>(false)
   const [signs, setSigns] = useState<SignMetadata[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả')
 
-  // Input source state: Camera, Uploaded Image/Video, or Auto-Stream Simulation
+  // Input source state: Camera or Uploaded Image/Video
   const [cameraActive, setCameraActive] = useState<boolean>(false)
-  const [autoStreamActive, setAutoStreamActive] = useState<boolean>(false)
   const [uploadedImageSrc, setUploadedImageSrc] = useState<string | null>(null)
   const [videoFileActive, setVideoFileActive] = useState<boolean>(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [mirrorMode, setMirrorMode] = useState<boolean>(true)
   const [showSkeleton, setShowSkeleton] = useState<boolean>(true)
   const [autoSpeak, setAutoSpeak] = useState<boolean>(true)
-
-  // Interactive manual finger state for camera-free algorithm testing
-  const [manualFingers, setManualFingers] = useState<FingerState>({
-    thumb: true,
-    index: true,
-    middle: true,
-    ring: true,
-    pinky: true,
-  })
-  const [manualModifier, setManualModifier] = useState<
-    'normal' | 'tight' | 'ok' | 'thumb_up' | 'thumb_down'
-  >('normal')
 
   // Detection telemetry state
   const [detectedHands, setDetectedHands] = useState<DetectedHand[]>([])
@@ -765,36 +364,6 @@ function App() {
     renderSkeletonOnContext(ctx, width, height, isNoCamVisual)
   }, [detectedHands, cameraActive, videoFileActive, uploadedImageSrc, renderSkeletonOnContext])
 
-  // Send landmarks to Python Backend /api/detect-landmarks so Python executes the classification
-  const evaluateLandmarksOnBackend = useCallback(
-    async (lms: LandmarkPoint[], commitImmediately = false) => {
-      if (overlayCanvasRef.current) {
-        overlayCanvasRef.current.width = 640
-        overlayCanvasRef.current.height = 400
-      }
-      try {
-        const res = await fetch('/api/detect-landmarks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            hands: [{ handedness: 'Right', score: 0.98, landmarks: lms }],
-          }),
-        })
-        if (res.ok) {
-          const data: DetectionResponse = await res.json()
-          handleDetectionResult(data)
-          if (commitImmediately && data.detected_sign) {
-            setHoldProgress(100)
-            commitRecognizedSign(data.detected_sign)
-          }
-        }
-      } catch {
-        // Fallback if backend temporarily unreachable
-      }
-    },
-    [handleDetectionResult, commitRecognizedSign]
-  )
-
   // Capture Screenshot (Composite Video/Image/Grid + 21 Landmarks + Sign Info HUD)
   const takeScreenshot = async () => {
     const width = 960
@@ -840,7 +409,7 @@ function App() {
     ctx.fillStyle = '#ffffff'
     const titleText = currentSign
       ? `${currentSign.emoji} ${currentSign.label_vi} (${currentSign.label_en})`
-      : 'SignVision AI — Khung hình Kiểm thử'
+      : 'SignVision AI — Khung hình Nhận diện'
     ctx.fillText(titleText, 24, height - 44)
 
     ctx.font = '500 15px Inter, sans-serif'
@@ -872,11 +441,11 @@ function App() {
       if (res.ok) {
         const saved = await res.json()
         setScreenshots((prev) => [saved, ...prev])
-        setScreenshotToast(`📸 Đã chụp & lưu vào thư mục screenshots/${saved.filename}!`)
-        setTimeout(() => setScreenshotToast(null), 4500)
+        setRightSubTab('screenshots')
+        setScreenshotToast(`📸 Đã lưu vào screenshots/${saved.filename}!`)
+        setTimeout(() => setScreenshotToast(null), 3500)
       }
     } catch {
-      // Fallback browser download if backend is unreachable
       const a = document.createElement('a')
       a.href = dataUrl
       a.download = `signvision_${Date.now()}.png`
@@ -893,7 +462,30 @@ function App() {
     }
   }
 
-  // Handle Uploaded Image or Video file (Camera-free testing!)
+  const stopAllStreams = useCallback(() => {
+    setCameraActive(false)
+    setVideoFileActive(false)
+    setUploadedImageSrc(null)
+
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.srcObject = null
+      videoRef.current.src = ''
+    }
+    setDetectedHands([])
+    setCurrentSign(null)
+    setHoldProgress(0)
+  }, [])
+
+  // Handle Uploaded Image or Video file
   const handleFileUpload = async (file: File) => {
     stopAllStreams()
     setCameraError(null)
@@ -936,7 +528,7 @@ function App() {
     }
   }
 
-  // Global Paste (Ctrl+V) handler so user can paste any screenshot directly!
+  // Global Paste (Ctrl+V) handler so user can paste any image directly
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       if (!e.clipboardData) return
@@ -995,35 +587,10 @@ function App() {
       setCameraActive(true)
     } catch {
       setCameraError(
-        '💡 Máy hiện chưa gắn Webcam — Hệ thống đã tự động bật Chế độ Luồng Mô phỏng Không Cần Camera (Auto-Stream) để bạn kiểm thử ngay!'
+        '⚠️ Không tìm thấy Webcam. Bạn có thể bấm "📁 Tải Ảnh / Video" hoặc nhấn Ctrl+V để dán ảnh bàn tay!'
       )
-      setAutoStreamActive(true)
     }
   }
-
-  const stopAllStreams = useCallback(() => {
-    setCameraActive(false)
-    setVideoFileActive(false)
-    setAutoStreamActive(false)
-    setUploadedImageSrc(null)
-
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
-    if (videoRef.current) {
-      videoRef.current.pause()
-      videoRef.current.srcObject = null
-      videoRef.current.src = ''
-    }
-    setDetectedHands([])
-    setCurrentSign(null)
-    setHoldProgress(0)
-  }, [])
 
   // Frame capture loop when Real Camera OR Uploaded Video File is active
   useEffect(() => {
@@ -1074,60 +641,11 @@ function App() {
     return () => clearInterval(interval)
   }, [cameraActive, videoFileActive, handleDetectionResult])
 
-  // Auto-Stream Loop (No-Camera continuous streaming to Python Backend!)
-  useEffect(() => {
-    if (!autoStreamActive || signs.length === 0) return
-
-    let tick = 0
-    const interval = setInterval(() => {
-      tick += 1
-      // Switch sign every ~16 ticks (~1.9 seconds) so hold-to-commit triggers naturally!
-      const signIndex = Math.floor(tick / 16) % signs.length
-      const targetSign = signs[signIndex]
-      const poseParams = getPoseParametersForSign(targetSign.id)
-      const lms = buildGeometricHandLandmarks(poseParams.fingers, {
-        ...poseParams.options,
-        jitterPhase: tick * 0.35,
-      })
-      evaluateLandmarksOnBackend(lms, false)
-    }, 120)
-
-    return () => clearInterval(interval)
-  }, [autoStreamActive, signs, evaluateLandmarksOnBackend])
-
   useEffect(() => {
     return () => {
       stopAllStreams()
     }
   }, [stopAllStreams])
-
-  // Trigger a single sign test through the Python Backend
-  const triggerSimulatedSign = (sign: SignMetadata) => {
-    setAutoStreamActive(false)
-    setUploadedImageSrc(null)
-    const poseParams = getPoseParametersForSign(sign.id)
-    setManualFingers(poseParams.fingers)
-    const lms = buildGeometricHandLandmarks(poseParams.fingers, poseParams.options)
-    evaluateLandmarksOnBackend(lms, true)
-  }
-
-  // Trigger manual finger configuration test through the Python Backend
-  const triggerManualFingerTest = (
-    nextFingers: FingerState,
-    nextMod: 'normal' | 'tight' | 'ok' | 'thumb_up' | 'thumb_down'
-  ) => {
-    setAutoStreamActive(false)
-    setUploadedImageSrc(null)
-    setManualFingers(nextFingers)
-    setManualModifier(nextMod)
-    const lms = buildGeometricHandLandmarks(nextFingers, {
-      tightSpread: nextMod === 'tight',
-      okPinch: nextMod === 'ok',
-      thumbStraightUp: nextMod === 'thumb_up',
-      thumbDown: nextMod === 'thumb_down',
-    })
-    evaluateLandmarksOnBackend(lms, true)
-  }
 
   // Save custom sign
   const handleSaveCustomSign = async (e: React.FormEvent) => {
@@ -1139,7 +657,7 @@ function App() {
 
     if (!landmarksToSave || landmarksToSave.length !== 21) {
       setTrainerMessage(
-        '⚠️ Vui lòng chọn một tư thế bàn tay hoặc bấm "Chụp mẫu 21 điểm mốc bàn tay hiện tại" trước khi lưu!'
+        '⚠️ Vui lòng bật Webcam hoặc tải ảnh có bàn tay rồi bấm "Chụp mẫu 21 điểm mốc bàn tay hiện tại" trước khi lưu!'
       )
       return
     }
@@ -1216,6 +734,7 @@ function App() {
 
   const fullSentenceVi = sentence.map((s) => s.label_vi).join(' • ')
   const fullSentenceEn = sentence.map((s) => s.label_en).join(' ')
+  const activeHand = detectedHands[0] || null
 
   return (
     <div className="app-container">
@@ -1232,13 +751,13 @@ function App() {
         }}
       />
 
-      {/* Header */}
+      {/* Compact Top Header */}
       <header className="app-header">
         <div className="brand-group">
           <div className="brand-icon">🤟</div>
           <div className="brand-title">
             <h1>SignVision AI</h1>
-            <p>Hệ thống Nhận diện Ngôn ngữ Ký hiệu (Hỗ trợ Camera, Ảnh/Video & Mô phỏng Không Cần Cam)</p>
+            <p>Nhận diện 36 Ngôn ngữ Ký hiệu qua Camera & MediaPipe 21 3D Landmarks</p>
           </div>
         </div>
 
@@ -1248,14 +767,14 @@ function App() {
             className={`nav-tab ${activeTab === 'live' ? 'active' : ''}`}
             onClick={() => setActiveTab('live')}
           >
-            🎥 Nhận diện & Test Không Cam ({signs.length})
+            🎥 Nhận diện Trực tiếp
           </button>
           <button
             type="button"
             className={`nav-tab ${activeTab === 'dictionary' ? 'active' : ''}`}
             onClick={() => setActiveTab('dictionary')}
           >
-            📖 Từ điển Ký hiệu
+            📖 Từ điển Ký hiệu ({signs.length})
           </button>
           <button
             type="button"
@@ -1269,43 +788,32 @@ function App() {
         <div className="telemetry-badges">
           <span className={`status-pill ${backendOnline ? 'online' : 'offline'}`}>
             <span className="status-dot" />
-            {backendOnline ? 'Python Backend: Sẵn sàng' : 'Backend: Đang kết nối...'}
+            {backendOnline ? 'Backend: Sẵn sàng' : 'Đang kết nối...'}
           </span>
           <span className="status-pill">⚡ {latencyMs} ms</span>
-          {(cameraActive || autoStreamActive || videoFileActive) && (
+          {(cameraActive || videoFileActive) && (
             <span className="status-pill">🎞️ {fps || 10} FPS</span>
           )}
         </div>
       </header>
 
-      {/* TAB 1: LIVE / NO-CAM WORKSPACE */}
+      {/* TAB 1: LIVE WORKSPACE (Fits 100% inside viewport height) */}
       {activeTab === 'live' && (
         <div className="workspace-grid">
-          {/* Left Column: Viewport + Screenshot + No-Cam Testing Suite */}
-          <div className="panel-card">
+          {/* Left Column: Camera Viewport + Live Sign Result Banner */}
+          <div className="panel-card left-stage-card">
             <div className="panel-header">
               <div className="panel-title">
-                <span>🖥️ Khung hình Phân tích & Khung xương 21 điểm</span>
+                <span>🖥️ Khung hình Camera & Khung xương 21 điểm</span>
               </div>
               <div className="btn-group">
-                {!autoStreamActive ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => {
-                      stopAllStreams()
-                      setAutoStreamActive(true)
-                    }}
-                  >
-                    🤖 Chạy Luồng Auto-Test (Không cần Cam)
+                {!cameraActive ? (
+                  <button type="button" className="btn btn-primary" onClick={startCamera}>
+                    🎥 Bật Webcam
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={() => setAutoStreamActive(false)}
-                  >
-                    ⏹ Dừng Auto-Test
+                  <button type="button" className="btn btn-danger" onClick={stopAllStreams}>
+                    ⏹ Tắt Webcam
                   </button>
                 )}
 
@@ -1318,13 +826,9 @@ function App() {
                   📁 Tải Ảnh / Video
                 </button>
 
-                {!cameraActive ? (
-                  <button type="button" className="btn" onClick={startCamera}>
-                    🎥 Bật Webcam
-                  </button>
-                ) : (
+                {(uploadedImageSrc || videoFileActive) && (
                   <button type="button" className="btn btn-danger" onClick={stopAllStreams}>
-                    ⏹ Tắt Webcam
+                    ✕ Đóng File
                   </button>
                 )}
 
@@ -1353,7 +857,7 @@ function App() {
               </div>
             )}
 
-            {/* Viewport: Supports Video, Uploaded Image, Drag-and-Drop, Paste, or Cyber Grid */}
+            {/* Viewport: Supports Webcam, Uploaded Video/Image, Drag-and-Drop, or Ctrl+V Paste */}
             <div
               className="camera-viewport"
               onDragOver={(e) => e.preventDefault()}
@@ -1386,16 +890,14 @@ function App() {
               <div className="camera-hud-top">
                 <div className="hud-badge">
                   <span>
-                    🖐️ Bàn tay: {detectedHands.length} • Chế độ:{' '}
+                    🖐️ Bàn tay: {detectedHands.length} •{' '}
                     {cameraActive
                       ? 'Webcam Trực tiếp'
                       : videoFileActive
                         ? 'Video Tải lên'
                         : uploadedImageSrc
                           ? 'Ảnh Tải lên / Clipboard'
-                          : autoStreamActive
-                            ? 'Luồng Auto-Stream (Python Backend)'
-                            : 'Mô phỏng Khung xương 21 Điểm'}
+                          : 'Chờ tín hiệu hình ảnh'}
                   </span>
                 </div>
                 <div className="hud-badge" style={{ pointerEvents: 'auto', gap: '0.5rem' }}>
@@ -1407,7 +909,7 @@ function App() {
                       color: showSkeleton ? '#34d399' : '#9ca3af',
                       cursor: 'pointer',
                       fontWeight: 600,
-                      fontSize: '0.75rem',
+                      fontSize: '0.74rem',
                     }}
                     onClick={() => setShowSkeleton((s) => !s)}
                   >
@@ -1421,7 +923,7 @@ function App() {
                       color: mirrorMode ? '#93c5fd' : '#9ca3af',
                       cursor: 'pointer',
                       fontWeight: 600,
-                      fontSize: '0.75rem',
+                      fontSize: '0.74rem',
                     }}
                     onClick={() => setMirrorMode((m) => !m)}
                   >
@@ -1432,19 +934,14 @@ function App() {
 
               {!cameraActive && !videoFileActive && !uploadedImageSrc && detectedHands.length === 0 && (
                 <div className="camera-placeholder">
-                  <div className="placeholder-icon">🧪</div>
-                  <h3>Chế độ Kiểm thử Không Cần Camera</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
-                    Bạn chưa gắn Camera? Hãy chọn 1 trong 3 cách dưới đây để kiểm thử trực tiếp với{' '}
-                    <strong>Python Backend</strong>:
+                  <div className="placeholder-icon">📷</div>
+                  <h3>Sẵn sàng Nhận diện Ngôn ngữ Ký hiệu</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    Bấm <strong>"🎥 Bật Webcam"</strong> để nhận diện thời gian thực, hoặc tải ảnh/video bàn tay (hỗ trợ kéo thả & dán ảnh <code>Ctrl + V</code>).
                   </p>
-                  <div className="btn-group" style={{ justifyContent: 'center', marginTop: '0.3rem' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => setAutoStreamActive(true)}
-                    >
-                      🤖 Chạy Luồng Auto-Test
+                  <div className="btn-group" style={{ justifyContent: 'center', marginTop: '0.25rem' }}>
+                    <button type="button" className="btn btn-primary" onClick={startCamera}>
+                      🎥 Bật Webcam ngay
                     </button>
                     <button
                       type="button"
@@ -1453,15 +950,6 @@ function App() {
                     >
                       📁 Tải Ảnh / Video (hoặc Ctrl+V)
                     </button>
-                    {signs.length > 0 && (
-                      <button
-                        type="button"
-                        className="btn btn-success"
-                        onClick={() => triggerSimulatedSign(signs[0])}
-                      >
-                        👋 Thử ngay "Xin chào"
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -1484,16 +972,16 @@ function App() {
                   {currentSign ? currentSign.emoji : '🔍'}
                 </div>
                 <div className="sign-text-group">
-                  <h2>{currentSign ? currentSign.label_vi : 'Đang chờ dữ liệu bàn tay...'}</h2>
+                  <h2>{currentSign ? currentSign.label_vi : 'Đang chờ nhận diện cử chỉ tay...'}</h2>
                   <div className="sub-en">
                     {currentSign
                       ? `${currentSign.label_en} • Nhóm: ${currentSign.category}`
-                      : 'Hỗ trợ: Luồng Auto-Test • Bấm nút Ký hiệu • Tải ảnh/video • Dán ảnh Ctrl+V'}
+                      : 'Hỗ trợ 36 ngôn ngữ ký hiệu thuộc 7 nhóm chủ đề'}
                   </div>
                   <div className="how-to-hint">
                     {currentSign
                       ? currentSign.how_to
-                      : 'Khi chưa có webcam, bạn có thể bấm bất kỳ ký hiệu nào bên dưới hoặc tự gập/duỗi từng ngón tay để kiểm tra thuật toán Python Backend.'}
+                      : 'Giữ cử chỉ tay ổn định ~0.85 giây để tự động ghép từ vào câu và phát âm.'}
                   </div>
                 </div>
               </div>
@@ -1522,114 +1010,29 @@ function App() {
                 </div>
               </div>
             </div>
-
-            {/* No-Cam Interactive Testing Box */}
-            <div className="nocam-control-box">
-              <div className="nocam-header">
-                <span className="nocam-title">
-                  🧪 Bộ Công cụ Test Không Cần Camera (Gửi tọa độ 21 điểm về Python Backend xử lý)
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Mẹo: Bạn cũng có thể bấm <code>Ctrl + V</code> để dán ảnh chụp màn hình bất kỳ!
-                </span>
-              </div>
-
-              {/* 1. Quick Sign Selector */}
-              <div className="demo-buttons-scroll">
-                {signs.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="demo-chip-btn"
-                    style={
-                      currentSign?.id === s.id
-                        ? { borderColor: s.color, background: `${s.color}28` }
-                        : undefined
-                    }
-                    onClick={() => triggerSimulatedSign(s)}
-                  >
-                    <span>{s.emoji}</span>
-                    <span>{s.label_vi}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* 2. Interactive Individual Finger Toggles */}
-              <div className="interactive-fingers-bar">
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  🖐️ Tự gập/duỗi ngón tay:
-                </span>
-                {(
-                  [
-                    ['thumb', 'Ngón cái'],
-                    ['index', 'Ngón trỏ'],
-                    ['middle', 'Ngón giữa'],
-                    ['ring', 'Áp út'],
-                    ['pinky', 'Ngón út'],
-                  ] as [keyof FingerState, string][]
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`finger-toggle-btn ${manualFingers[key] ? 'active' : ''}`}
-                    onClick={() => {
-                      const updated = { ...manualFingers, [key]: !manualFingers[key] }
-                      triggerManualFingerTest(updated, 'normal')
-                    }}
-                  >
-                    {label}: {manualFingers[key] ? 'Duỗi ↑' : 'Gập ↓'}
-                  </button>
-                ))}
-
-                <button
-                  type="button"
-                  className={`finger-toggle-btn ${manualModifier === 'ok' ? 'active' : ''}`}
-                  onClick={() =>
-                    triggerManualFingerTest(
-                      { thumb: true, index: false, middle: true, ring: true, pinky: true },
-                      'ok'
-                    )
-                  }
-                >
-                  👌 Chụm OK
-                </button>
-                <button
-                  type="button"
-                  className={`finger-toggle-btn ${manualModifier === 'tight' ? 'active' : ''}`}
-                  onClick={() =>
-                    triggerManualFingerTest(
-                      { thumb: true, index: true, middle: true, ring: true, pinky: true },
-                      'tight'
-                    )
-                  }
-                >
-                  🙏 Khép sát 5 ngón
-                </button>
-              </div>
-            </div>
           </div>
 
-          {/* Right Column: Sentence Builder + Finger Telemetry + Screenshots + History */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Sentence Builder Card */}
-            <div className="panel-card">
+          {/* Right Column: Sentence Builder + Compact 5-Finger Telemetry + Tabbed History/Screenshots */}
+          <div className="right-column-stack">
+            {/* 1. Sentence Builder Card */}
+            <div className="panel-card compact-card">
               <div className="panel-header">
                 <div className="panel-title">
-                  <span>💬 Ghép câu Giao tiếp & Phát âm (Text-to-Speech)</span>
+                  <span>💬 Ghép câu & Phát âm (TTS)</span>
                 </div>
                 <button
                   type="button"
-                  className={`btn ${autoSpeak ? 'btn-active' : ''}`}
+                  className={`btn btn-sm ${autoSpeak ? 'btn-active' : ''}`}
                   onClick={() => setAutoSpeak((a) => !a)}
                 >
-                  {autoSpeak ? '🔊 Tự động đọc: BẬT' : '🔇 Tự động đọc: TẮT'}
+                  {autoSpeak ? '🔊 Tự đọc: BẬT' : '🔇 Tự đọc: TẮT'}
                 </button>
               </div>
 
               <div className="sentence-box">
                 {sentence.length === 0 ? (
                   <span className="sentence-empty">
-                    Các ký hiệu được nhận diện sẽ tự động ghép thành câu tại đây...
+                    Các ký hiệu nhận diện được sẽ tự động ghép thành câu tại đây...
                   </span>
                 ) : (
                   sentence.map((item, idx) => (
@@ -1645,7 +1048,7 @@ function App() {
                 <div className="btn-group">
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className="btn btn-sm btn-primary"
                     disabled={sentence.length === 0}
                     onClick={() => speakText(sentence.map((s) => s.label_vi).join(', '), 'vi-VN')}
                   >
@@ -1653,217 +1056,183 @@ function App() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-success"
+                    className="btn btn-sm btn-success"
                     disabled={sentence.length === 0}
                     onClick={() => speakText(fullSentenceEn, 'en-US')}
                   >
-                    🌐 Speak English
+                    🌐 Speak EN
                   </button>
                 </div>
                 <div className="btn-group">
+                  {sentence.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => navigator.clipboard.writeText(fullSentenceVi)}
+                      title="Sao chép câu"
+                    >
+                      📋 Copy
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="btn"
+                    className="btn btn-sm"
                     disabled={sentence.length === 0}
                     onClick={() => setSentence((prev) => prev.slice(0, -1))}
                   >
-                    ⌫ Xóa từ cuối
+                    ⌫ Xóa từ
                   </button>
                   <button
                     type="button"
-                    className="btn btn-danger"
+                    className="btn btn-sm btn-danger"
                     disabled={sentence.length === 0}
                     onClick={() => setSentence([])}
                   >
-                    🗑️ Xóa câu
+                    🗑️ Xóa hết
                   </button>
                 </div>
               </div>
+            </div>
 
-              {sentence.length > 0 && (
-                <div
-                  style={{
-                    fontSize: '0.82rem',
-                    color: 'var(--text-secondary)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    borderTop: '1px solid var(--border-color)',
-                    paddingTop: '0.6rem',
-                  }}
-                >
-                  <span>
-                    <strong>Bản dịch EN:</strong> {fullSentenceEn}
-                  </span>
+            {/* 2. Compact Real-time Finger State Telemetry */}
+            <div className="panel-card compact-card">
+              <div className="panel-header">
+                <div className="panel-title">
+                  <span>🖐️ Trạng thái 5 Ngón tay (MediaPipe)</span>
+                </div>
+                <span style={{ fontSize: '0.76rem', color: '#93c5fd', fontWeight: 600 }}>
+                  {activeHand
+                    ? `${activeHand.handedness === 'Left' ? 'Tay Trái' : 'Tay Phải'} (${Math.round(activeHand.score * 100)}%)`
+                    : 'Chưa phát hiện bàn tay'}
+                </span>
+              </div>
+
+              <div className="finger-pills">
+                <div className={`finger-pill ${activeHand?.fingers.thumb ? 'up' : ''}`}>
+                  Cái: {activeHand ? (activeHand.fingers.thumb ? 'Duỗi ↑' : 'Gập ↓') : '--'}
+                </div>
+                <div className={`finger-pill ${activeHand?.fingers.index ? 'up' : ''}`}>
+                  Trỏ: {activeHand ? (activeHand.fingers.index ? 'Duỗi ↑' : 'Gập ↓') : '--'}
+                </div>
+                <div className={`finger-pill ${activeHand?.fingers.middle ? 'up' : ''}`}>
+                  Giữa: {activeHand ? (activeHand.fingers.middle ? 'Duỗi ↑' : 'Gập ↓') : '--'}
+                </div>
+                <div className={`finger-pill ${activeHand?.fingers.ring ? 'up' : ''}`}>
+                  Áp út: {activeHand ? (activeHand.fingers.ring ? 'Duỗi ↑' : 'Gập ↓') : '--'}
+                </div>
+                <div className={`finger-pill ${activeHand?.fingers.pinky ? 'up' : ''}`}>
+                  Út: {activeHand ? (activeHand.fingers.pinky ? 'Duỗi ↑' : 'Gập ↓') : '--'}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Tabbed History & Screenshot Gallery Card (Flex-1 Scrollable) */}
+            <div className="panel-card flex-scroll-card">
+              <div className="panel-header">
+                <div className="sub-tabs-group">
                   <button
                     type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#60a5fa',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
-                    onClick={() => navigator.clipboard.writeText(fullSentenceVi)}
+                    className={`sub-tab-btn ${rightSubTab === 'history' ? 'active' : ''}`}
+                    onClick={() => setRightSubTab('history')}
                   >
-                    📋 Sao chép
+                    🕒 Lịch sử ({history.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`sub-tab-btn ${rightSubTab === 'screenshots' ? 'active' : ''}`}
+                    onClick={() => setRightSubTab('screenshots')}
+                  >
+                    📸 Screenshot ({screenshots.length})
                   </button>
                 </div>
-              )}
-            </div>
 
-            {/* Screenshot Gallery Card */}
-            <div className="panel-card">
-              <div className="panel-header">
-                <div className="panel-title">
-                  <span>📸 Bộ sưu tập Screenshot ({screenshots.length})</span>
-                </div>
-                <button type="button" className="btn btn-success" onClick={takeScreenshot}>
-                  + Chụp màn hình ngay
-                </button>
-              </div>
-
-              {screenshots.length === 0 ? (
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                  Nhấn nút <strong>"📸 Chụp Screenshot"</strong> để lưu lại hình ảnh khung xương 21 điểm kèm kết quả nhận diện (tự động lưu vào thư mục <code>screenshots/</code> của dự án).
-                </p>
-              ) : (
-                <div className="screenshots-grid">
-                  {screenshots.slice(0, 6).map((shot) => (
-                    <div key={shot.filename} className="screenshot-card">
-                      <a href={shot.url} target="_blank" rel="noreferrer">
-                        <img
-                          src={shot.url}
-                          alt={shot.filename}
-                          className="screenshot-thumb"
-                        />
-                      </a>
-                      <div className="screenshot-meta">
-                        <span
-                          style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                          title={shot.filename}
-                        >
-                          {shot.created_at.slice(0, 8)}
-                        </span>
-                        <div className="screenshot-actions">
-                          <a
-                            href={shot.url}
-                            download={shot.filename}
-                            className="icon-btn"
-                            title="Tải ảnh về máy"
-                          >
-                            ⬇ Tải
-                          </a>
-                          <button
-                            type="button"
-                            className="icon-btn"
-                            onClick={() => handleDeleteScreenshot(shot.filename)}
-                            title="Xóa ảnh"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Real-time Finger State Telemetry */}
-            <div className="panel-card">
-              <div className="panel-header">
-                <div className="panel-title">
-                  <span>🖐️ Phân tích Trạng thái Ngón tay (Từ Python Backend)</span>
-                </div>
-              </div>
-
-              {detectedHands.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Hãy bấm một nút ký hiệu hoặc bật Auto-Test để xem trạng thái phân tích 5 ngón tay.
-                </p>
-              ) : (
-                <div className="hands-telemetry-list">
-                  {detectedHands.map((h, i) => (
-                    <div key={i} className="hand-telemetry-card">
-                      <div className="hand-telemetry-header">
-                        <span>
-                          ✋ {h.handedness === 'Left' ? 'Bàn tay Trái' : 'Bàn tay Phải'} (Độ tin cậy:{' '}
-                          {Math.round(h.score * 100)}%)
-                        </span>
-                        <span style={{ color: '#38bdf8' }}>
-                          {h.sign_id ? `Mã: ${h.sign_id}` : 'Chưa khớp mẫu'}
-                        </span>
-                      </div>
-                      <div className="finger-pills">
-                        <div className={`finger-pill ${h.fingers.thumb ? 'up' : ''}`}>
-                          Ngón cái: {h.fingers.thumb ? 'Duỗi ↑' : 'Gập ↓'}
-                        </div>
-                        <div className={`finger-pill ${h.fingers.index ? 'up' : ''}`}>
-                          Ngón trỏ: {h.fingers.index ? 'Duỗi ↑' : 'Gập ↓'}
-                        </div>
-                        <div className={`finger-pill ${h.fingers.middle ? 'up' : ''}`}>
-                          Ngón giữa: {h.fingers.middle ? 'Duỗi ↑' : 'Gập ↓'}
-                        </div>
-                        <div className={`finger-pill ${h.fingers.ring ? 'up' : ''}`}>
-                          Áp út: {h.fingers.ring ? 'Duỗi ↑' : 'Gập ↓'}
-                        </div>
-                        <div className={`finger-pill ${h.fingers.pinky ? 'up' : ''}`}>
-                          Ngón út: {h.fingers.pinky ? 'Duỗi ↑' : 'Gập ↓'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Recognition History Log */}
-            <div className="panel-card">
-              <div className="panel-header">
-                <div className="panel-title">
-                  <span>🕒 Lịch sử Nhận diện (SQLite Database)</span>
-                </div>
-                {history.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn"
-                    style={{ padding: '0.3rem 0.65rem', fontSize: '0.76rem' }}
-                    onClick={clearHistory}
-                  >
+                {rightSubTab === 'history' && history.length > 0 && (
+                  <button type="button" className="btn btn-sm" onClick={clearHistory}>
                     Xóa lịch sử
+                  </button>
+                )}
+                {rightSubTab === 'screenshots' && (
+                  <button type="button" className="btn btn-sm btn-success" onClick={takeScreenshot}>
+                    + Chụp ngay
                   </button>
                 )}
               </div>
 
-              {history.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Chưa có lịch sử nhận diện nào được lưu.
-                </p>
-              ) : (
-                <div className="history-list">
-                  {history.slice(0, 10).map((item) => {
-                    const matchedSign = signs.find((s) => s.id === item.sign_id)
-                    return (
-                      <div key={item.id} className="history-item">
-                        <div className="history-item-left">
-                          <span>{matchedSign?.emoji || '🤟'}</span>
-                          <span>{item.label_vi}</span>
-                        </div>
-                        <div className="history-item-right">
-                          <span style={{ color: '#34d399' }}>
-                            {Math.round(item.confidence * 100)}%
+              <div className="card-scroll-body">
+                {rightSubTab === 'history' ? (
+                  history.length === 0 ? (
+                    <p className="empty-hint-text">Chưa có lịch sử nhận diện nào được lưu.</p>
+                  ) : (
+                    <div className="history-list">
+                      {history.map((item) => {
+                        const matchedSign = signs.find((s) => s.id === item.sign_id)
+                        return (
+                          <div key={item.id} className="history-item">
+                            <div className="history-item-left">
+                              <span>{matchedSign?.emoji || '🤟'}</span>
+                              <span>{item.label_vi}</span>
+                            </div>
+                            <div className="history-item-right">
+                              <span style={{ color: '#34d399' }}>
+                                {Math.round(item.confidence * 100)}%
+                              </span>
+                              <span>{item.created_at.slice(11, 19)}</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                ) : screenshots.length === 0 ? (
+                  <p className="empty-hint-text">
+                    Nhấn <strong>"📸 Chụp Screenshot"</strong> để lưu lại khung xương 21 điểm kèm kết quả nhận diện vào thư mục <code>screenshots/</code>.
+                  </p>
+                ) : (
+                  <div className="screenshots-grid">
+                    {screenshots.map((shot) => (
+                      <div key={shot.filename} className="screenshot-card">
+                        <a href={shot.url} target="_blank" rel="noreferrer">
+                          <img
+                            src={shot.url}
+                            alt={shot.filename}
+                            className="screenshot-thumb"
+                          />
+                        </a>
+                        <div className="screenshot-meta">
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={shot.filename}
+                          >
+                            {shot.created_at.slice(0, 8)}
                           </span>
-                          <span>{item.created_at.slice(11, 19)}</span>
+                          <div className="screenshot-actions">
+                            <a
+                              href={shot.url}
+                              download={shot.filename}
+                              className="icon-btn"
+                              title="Tải ảnh về máy"
+                            >
+                              ⬇
+                            </a>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              onClick={() => handleDeleteScreenshot(shot.filename)}
+                              title="Xóa ảnh"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1871,17 +1240,17 @@ function App() {
 
       {/* TAB 2: SIGN LANGUAGE DICTIONARY */}
       {activeTab === 'dictionary' && (
-        <div className="panel-card">
+        <div className="panel-card full-tab-card">
           <div className="panel-header">
             <div className="panel-title">
-              <span>📖 Từ điển Cử chỉ & Ngôn ngữ Ký hiệu Giao tiếp Thông dụng</span>
+              <span>📖 Từ điển 36 Cử chỉ & Ngôn ngữ Ký hiệu Thông dụng</span>
             </div>
             <div className="category-filter-bar">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
-                  className={`btn ${selectedCategory === cat ? 'btn-primary' : ''}`}
+                  className={`btn btn-sm ${selectedCategory === cat ? 'btn-primary' : ''}`}
                   onClick={() => setSelectedCategory(cat)}
                 >
                   {cat}
@@ -1890,84 +1259,75 @@ function App() {
             </div>
           </div>
 
-          <div className="dictionary-grid">
-            {filteredSigns.map((sign) => (
-              <div key={sign.id} className="sign-card">
-                <div>
-                  <div className="sign-card-top">
-                    <div className="sign-card-title">
-                      <div
-                        className="sign-card-emoji"
-                        style={{
-                          borderColor: sign.color,
-                          background: `${sign.color}20`,
-                        }}
-                      >
-                        {sign.emoji}
+          <div className="dictionary-grid-scroll">
+            <div className="dictionary-grid">
+              {filteredSigns.map((sign) => (
+                <div key={sign.id} className="sign-card">
+                  <div>
+                    <div className="sign-card-top">
+                      <div className="sign-card-title">
+                        <div
+                          className="sign-card-emoji"
+                          style={{
+                            borderColor: sign.color,
+                            background: `${sign.color}20`,
+                          }}
+                        >
+                          {sign.emoji}
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '0.98rem', fontWeight: 700 }}>
+                            {sign.label_vi}
+                          </h3>
+                          <p style={{ fontSize: '0.78rem', color: '#93c5fd' }}>
+                            {sign.label_en}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 style={{ fontSize: '1.08rem', fontWeight: 700 }}>
-                          {sign.label_vi}
-                        </h3>
-                        <p style={{ fontSize: '0.82rem', color: '#93c5fd' }}>
-                          {sign.label_en}
-                        </p>
-                      </div>
+                      <span className="category-badge">{sign.category}</span>
                     </div>
-                    <span className="category-badge">{sign.category}</span>
+
+                    <p className="sign-card-desc" style={{ marginTop: '0.6rem' }}>
+                      <strong>Cách thực hiện:</strong> {sign.how_to}
+                    </p>
                   </div>
 
-                  <p className="sign-card-desc" style={{ marginTop: '0.85rem' }}>
-                    <strong>Cách thực hiện:</strong> {sign.how_to}
-                  </p>
-                </div>
-
-                <div className="sign-card-actions">
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => speakText(sign.label_vi, 'vi-VN')}
-                  >
-                    🔊 Nghe phát âm
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => {
-                      setActiveTab('live')
-                      setTimeout(() => triggerSimulatedSign(sign), 100)
-                    }}
-                  >
-                    🧪 Thử trên màn hình
-                  </button>
-                  {sign.is_custom && (
+                  <div className="sign-card-actions">
                     <button
                       type="button"
-                      className="btn btn-danger"
-                      onClick={() => handleDeleteCustomSign(sign.id)}
+                      className="btn btn-sm"
+                      onClick={() => speakText(sign.label_vi, 'vi-VN')}
                     >
-                      🗑️ Xóa
+                      🔊 Nghe phát âm
                     </button>
-                  )}
+                    {sign.is_custom && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDeleteCustomSign(sign.id)}
+                      >
+                        🗑️ Xóa
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {/* TAB 3: CUSTOM SIGN TRAINER */}
       {activeTab === 'trainer' && (
-        <div className="panel-card">
+        <div className="panel-card full-tab-card">
           <div className="panel-header">
             <div className="panel-title">
               <span>✨ Tự huấn luyện & Thêm Ký hiệu Mới vào Cơ sở dữ liệu (SQLite)</span>
             </div>
           </div>
 
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Ngay cả khi chưa có Camera, bạn vẫn có thể tạo tư thế ngón tay ở tab{' '}
-            <strong>Nhận diện & Test Không Cam</strong> (hoặc tải ảnh bàn tay lên), sau đó nhấn{' '}
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
+            Bật Webcam hoặc tải ảnh bàn tay ở tab <strong>Nhận diện Trực tiếp</strong>, sau đó nhấn{' '}
             <strong>"Chụp mẫu 21 điểm mốc bàn tay hiện tại"</strong> để lưu ký hiệu mới vào{' '}
             <code>gestures.db</code>.
           </p>
@@ -1984,16 +1344,8 @@ function App() {
                       '✅ Đã chụp thành công vector 21 điểm mốc (landmarks) từ bàn tay hiện tại!'
                     )
                   } else {
-                    const fallback = buildGeometricHandLandmarks({
-                      thumb: true,
-                      index: true,
-                      middle: true,
-                      ring: true,
-                      pinky: true,
-                    })
-                    setCapturedLandmarks(fallback)
                     setTrainerMessage(
-                      'ℹ️ Đã nạp mẫu khung xương 21 điểm mặc định để bạn thử tính năng lưu vào SQLite!'
+                      '⚠️ Chưa có dữ liệu bàn tay! Hãy bật Webcam hoặc tải ảnh bàn tay ở tab Nhận diện Trực tiếp trước.'
                     )
                   }
                 }}
